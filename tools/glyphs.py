@@ -34,6 +34,8 @@ for ch in 'NUKRAX':
     cs=flat(pen.value); cs.sort(key=lambda c:-abs(area(c)))
     o=cs[0]
     xs=[p[0] for p in o];ys=[p[1] for p in o]
-    out['g'][ch]={'adv':gs[cm[ord(ch)]].width,'bb':[min(xs),min(ys),max(xs),max(ys)],'c':[[round(x),round(y)] for x,y in o]}
+    sg=1 if area(o)>0 else -1
+    rest=[[ [round(x),round(y)] for x,y in c] for c in cs[1:] if area(c)*sg<0]
+    out['g'][ch]={'adv':gs[cm[ord(ch)]].width,'bb':[min(xs),min(ys),max(xs),max(ys)],'c':[[round(x),round(y)] for x,y in o],'holes':rest}
     print(ch,out['g'][ch]['adv'],out['g'][ch]['bb'],len(o))
 open('assets/glyphs.js','w').write('window.NKX_GLYPHS='+json.dumps(out,separators=(',',':'))+';')
