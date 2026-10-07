@@ -7,4 +7,7 @@ body{display:flex;align-items:center;justify-content:center;font-family:'Outfit'
 .fallback{display:none;text-align:center;padding:24px}
 .fallback b{display:block;font:400 clamp(44px,16vw,96px)/1 'NKX Display',sans-serif;letter-spacing:.06em;color:var(--white);margin-bottom:16px}
 .fallback span{font:11px 'Space Mono',monospace;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
-@media (max-width:899px){#stage,.hud{display:none}.fallback{display:block}}
+@media (max-width:899px){#stage,canvas#stage,.hud{display:none}.fallback{display:block}}
+canvas#stage{display:block}
+.dbg{position:fixed;left:24px;top:18px;font:13px 'Space Mono',monospace;color:#abbed3;pointer-events:none}
+body.nogl #stage,body.nogl .hud{display:none}body.nogl .fallback{display:block}
