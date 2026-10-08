@@ -13,6 +13,8 @@ const DEBUG = qs.has('debug'), SPEED = +(qs.get('speed') || 1);
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const W = 1920, H = 1080, FLOOR = 900, S = 0.056, BASE_Y = 470, X0 = 430, TH = K.PLATE, WALLZ = -90, DT = 1 / 60, D = Math.PI / 180;
 let rs = SEED; const rnd = () => { rs |= 0; rs = rs + 0x6D2B79F5 | 0; let t = Math.imul(rs ^ rs >>> 15, 1 | rs); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+// NUKRAX web palette (Color_System_Specification.pdf, dark theme)
+const PAL = { page: 0x151515, recess: 0x111111, surface: 0x1a1a19, overlay: 0x20201f, control: 0x2d2d2d, hover: 0x373736, strong: 0x4d4d4c, text: 0xf0efec, text2: 0xc3c2b7, muted: 0x898781, accent: 0xabbed3 };
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 
@@ -21,35 +23,56 @@ const host = document.getElementById('stage');
 let renderer;
 try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }); } catch (e) { document.body.classList.add('nogl'); throw e; }
 renderer.setPixelRatio(qs.has('manual') ? 1 : Math.min(devicePixelRatio || 1, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.8; renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.NeutralToneMapping; renderer.toneMappingExposure = 1.25; renderer.outputColorSpace = THREE.SRGBColorSpace;
 host.replaceWith(renderer.domElement); renderer.domElement.id = 'stage';
-const scene = new THREE.Scene(); scene.background = new THREE.Color(0x07090b); scene.fog = new THREE.Fog(0x07090b, 3800, 7500);
-const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.22;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(PAL.page); scene.fog = new THREE.Fog(PAL.page, 3800, 7500);
+const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.55;
 const camera = new THREE.PerspectiveCamera(26, 16 / 9, 200, 12000); camera.position.set(960, 840, 2950); camera.lookAt(960, 470, 0);
-scene.add(new THREE.HemisphereLight(0x8da0b0, 0x050607, 0.32));
-const key = new THREE.DirectionalLight(0xf0efec, 2.1); key.position.set(300, 1500, 1300); key.target.position.set(980, 200, 0); key.castShadow = true;
+scene.add(new THREE.HemisphereLight(PAL.text2, PAL.surface, 0.7));
+const key = new THREE.DirectionalLight(PAL.text, 3.2); key.position.set(300, 1500, 1300); key.target.position.set(980, 200, 0); key.castShadow = true;
 Object.assign(key.shadow.camera, { left: -1500, right: 1500, top: 1100, bottom: -700, near: 200, far: 4000 }); key.shadow.mapSize.set(qs.has('manual') ? 2048 : 3072, qs.has('manual') ? 2048 : 3072); key.shadow.bias = -0.0004; key.shadow.normalBias = 1.2; key.shadow.radius = 4;
 scene.add(key, key.target);
-const rim = new THREE.DirectionalLight(0xabbed3, 1.5); rim.position.set(2200, 800, -900); rim.target.position.set(1400, 400, 0); scene.add(rim, rim.target);
-const fill = new THREE.DirectionalLight(0x9fb0c0, 0.5); fill.position.set(-1500, 400, 1500); scene.add(fill);
+const rim = new THREE.DirectionalLight(PAL.accent, 1.7); rim.position.set(2200, 800, -900); rim.target.position.set(1400, 400, 0); scene.add(rim, rim.target);
+const kick = new THREE.DirectionalLight(PAL.accent, 0.9); kick.position.set(-1300, 900, -900); kick.target.position.set(1100, 400, 0); scene.add(kick, kick.target);
+const fill = new THREE.DirectionalLight(PAL.text2, 0.9); fill.position.set(-1500, 400, 1500); scene.add(fill);
 
-function gridTex() { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); g.fillStyle = '#0b0f12'; g.fillRect(0, 0, 256, 256); for (let i = 0; i < 2600; i++) { g.fillStyle = `rgba(255,255,255,${Math.random() * 0.025})`; g.fillRect(Math.random() * 256, Math.random() * 256, 1.5, 1.5); } g.strokeStyle = 'rgba(207,222,234,.07)'; g.lineWidth = 2; g.strokeRect(0, 0, 256, 256); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(60, 40); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; }
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(6000, 4000), new THREE.MeshStandardMaterial({ map: gridTex(), roughness: 0.82, metalness: 0.1 })); floor.rotation.x = -Math.PI / 2; floor.position.set(980, 0, 700); floor.receiveShadow = true; scene.add(floor);
-const wall = new THREE.Mesh(new THREE.PlaneGeometry(7000, 3200), new THREE.MeshStandardMaterial({ color: 0x070a0c, roughness: 0.95, metalness: 0 })); wall.position.set(980, 1500, WALLZ); wall.receiveShadow = true; scene.add(wall);
-const skirt = new THREE.Mesh(new THREE.BoxGeometry(7000, 16, 8), new THREE.MeshStandardMaterial({ color: 0x1b2328, roughness: 0.6, metalness: 0.4 })); skirt.position.set(980, 8, WALLZ + 4); skirt.receiveShadow = true; scene.add(skirt);
+function gridTex() { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); g.fillStyle = '#1a1a19'; g.fillRect(0, 0, 256, 256); for (let i = 0; i < 2600; i++) { g.fillStyle = `rgba(255,255,255,${Math.random() * 0.025})`; g.fillRect(Math.random() * 256, Math.random() * 256, 1.5, 1.5); } g.strokeStyle = '#2d2d2d'; g.lineWidth = 2; g.strokeRect(0, 0, 256, 256); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(60, 40); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; }
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(6000, 4000), new THREE.MeshStandardMaterial({ map: gridTex(), roughness: 0.8, metalness: 0.12 })); floor.rotation.x = -Math.PI / 2; floor.position.set(980, 0, 700); floor.receiveShadow = true; scene.add(floor);
+const wall = new THREE.Mesh(new THREE.PlaneGeometry(7000, 3200), new THREE.MeshStandardMaterial({ color: PAL.recess, roughness: 0.95, metalness: 0 })); wall.position.set(980, 1500, WALLZ); wall.receiveShadow = true; scene.add(wall);
+const skirt = new THREE.Mesh(new THREE.BoxGeometry(7000, 16, 8), new THREE.MeshStandardMaterial({ color: PAL.control, roughness: 0.6, metalness: 0.4 })); skirt.position.set(980, 8, WALLZ + 4); skirt.receiveShadow = true; scene.add(skirt);
 
-// work cell on the right (the robot's original task)
-const PA = 1700, PB = 1830, PH = 60, BLK = 26;
-for (const x of [PA, PB]) { const b = new THREE.Mesh(new THREE.BoxGeometry(84, PH, 84), mats.joint); b.position.set(x, PH / 2, K.ZB); b.castShadow = b.receiveShadow = true; scene.add(b); const top = new THREE.Mesh(new THREE.BoxGeometry(86, 3, 86), mats.steel); top.position.set(x, PH + 1.5, K.ZB); scene.add(top); }
-const block = new THREE.Mesh(new THREE.BoxGeometry(BLK, BLK, BLK), mats.accent); block.castShadow = true; scene.add(block); let blockHeld = false;
+// ---- work cell (right): precision insertion with in-process gauging ----
+// magazine feeder -> dial-indicator inspection -> press-fit into a 3-pocket fixture; finished parts are pulled and dropped down a chute.
+const TOP = 44, PART_R = 13, PART_H = 26, CX = [1726, 1760, 1794];
+const Z_FEED = 40, Z_INS = 170, Z_FIX = 330, INS = [1888, 154, Z_INS], CHUTE = [1946, 84, 332];
+const mk = (g, m, x, y, z) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.castShadow = o.receiveShadow = true; scene.add(o); return o; };
+mk(new THREE.BoxGeometry(305, TOP - 4, 380), mats.deep, 1842, (TOP - 4) / 2, 200); mk(new THREE.BoxGeometry(305, 4, 380), mats.joint, 1842, TOP - 2, 200);
+for (const [w, d, x, z] of [[305, 5, 1842, 12], [305, 5, 1842, 388], [5, 380, 1692, 200], [5, 380, 1992, 200]]) mk(new THREE.BoxGeometry(w, 4, d), mats.panel, x, TOP + 0.5, z);
+mk(new THREE.BoxGeometry(124, 16, 46), mats.panel, 1760, TOP + 8, Z_FEED); mk(new THREE.BoxGeometry(124, 22, 52), mats.joint, 1760, TOP + 11, Z_FIX);
+for (const x of CX) { mk(new THREE.CylinderGeometry(15.5, 15.5, 0.6, 28), mats.rubber, x, TOP + 16.3, Z_FEED); const r = mk(new THREE.CylinderGeometry(17, 17, 1.2, 28), mats.steel, x, TOP + 22.2, Z_FIX); mk(new THREE.CylinderGeometry(14.6, 14.6, 1.5, 28), mats.rubber, x, TOP + 22.6, Z_FIX); }
+// dial-indicator station: post, gauge body, face, plunger (touches the rotating part)
+mk(new THREE.BoxGeometry(70, 12, 70), mats.panel, 1930, TOP + 6, Z_INS); mk(new THREE.CylinderGeometry(9, 9, 150, 20), mats.steel, 1976, TOP + 75, Z_INS);
+mk(new THREE.BoxGeometry(34, 22, 22), mats.joint, 1960, INS[1], Z_INS); { const f = mk(new THREE.CylinderGeometry(17, 17, 6, 36), mats.deep, 1962, INS[1] + 22, Z_INS + 12); f.rotation.x = Math.PI / 2; const ring = mk(new THREE.TorusGeometry(16, 1.5, 8, 36), mats.accent, 1962, INS[1] + 22, Z_INS + 16); const tick = mk(new THREE.BoxGeometry(1.5, 10, 1), mats.steel, 1962, INS[1] + 26, Z_INS + 16); }
+const plunger = mk(new THREE.CylinderGeometry(2.4, 2.4, 60, 12), mats.steel, 1930, INS[1], Z_INS); plunger.rotation.z = Math.PI / 2; let plungerX = 0;
+// chute: opaque housing + dark opening (parts disappear below it)
+mk(new THREE.BoxGeometry(66, 44, 58), mats.panel, CHUTE[0], TOP + 22, CHUTE[2]); mk(new THREE.BoxGeometry(38, 0.8, 30), mats.rubber, CHUTE[0], TOP + 44.5, CHUTE[2]);
+// machined bushings (pool): hollow cylinder with one accent datum mark so wrist roll is readable
+const partGeo = new THREE.LatheGeometry([new THREE.Vector2(7, -PART_H / 2), new THREE.Vector2(PART_R - 1.5, -PART_H / 2), new THREE.Vector2(PART_R, -PART_H / 2 + 1.5), new THREE.Vector2(PART_R, PART_H / 2 - 1.5), new THREE.Vector2(PART_R - 1.5, PART_H / 2), new THREE.Vector2(7, PART_H / 2)], 28);
+const bushings = []; for (let i = 0; i < 6; i++) { const p = new THREE.Mesh(partGeo, mats.steel); p.castShadow = p.receiveShadow = true; const mark = new THREE.Mesh(new THREE.BoxGeometry(2, 8, 5), mats.accent); mark.position.set(PART_R + 0.4, 0, 0); p.add(mark); p.visible = false; scene.add(p); bushings.push(p); }
+const wr = (() => { let s = (SEED ^ 0x9e3779b9) | 0; return () => { s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; })();
+const feeder = [null, null, null], fixture = [null, null, null]; let held = null, lastPocket = -1, drop = null;
+const feedPos = i => [CX[i], TOP + 16 - 6 + PART_H / 2, Z_FEED], fixPos = j => [CX[j], TOP + 22 - 8 + PART_H / 2, Z_FIX];
+const getPart = () => bushings.find(p => !p.visible);
+function spawn(i, rise = false) { const p = getPart(); const [x, y, z] = feedPos(i); p.position.set(x, y - (rise ? 40 : 0), z); p.rotation.set(0, 0, 0); p.visible = true; p.rise = rise ? { y, t: 0 } : null; feeder[i] = p; }
+for (let i = 0; i < 3; i++) spawn(i);
 
 // =============== robot ===============
 const parts = buildArm(); scene.add(parts.root);
 const arm = new Arm3D(parts);
-const plateRho0 = contactRho(TH / 2, 0), blockRho0 = contactRho(BLK / 2, 0);
 const OPEN = 34, HOVER = 210;
-const pSpec = (x, y, g = 0, grip) => ({ m: 'p', yaw: 0, r: x - K.BX, h: y, g, grip });
-arm.init(pSpec(PA, PH + BLK / 2 + 120, 0, OPEN));
+const zSpec = (G, phi, grip, o) => Object.assign({ m: 'z', G, phi, grip }, o);
+const partRho = contactRho(PART_R, 0) / D;
+arm.init(zSpec([CX[0], feedPos(0)[1] + 110, Z_FEED], 0, OPEN));
 
 // =============== letters ===============
 const engine = Engine.create({ positionIterations: 12, velocityIterations: 10 });
@@ -57,7 +80,7 @@ engine.gravity.y = 1; engine.gravity.scale = 0.0017;
 const letters = []; let ox = X0;
 const inside = (pts, holes, x, y) => { let c = false; for (const poly of [pts, ...holes]) for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
 const segDist = (px, py, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], t = clamp(((px - a[0]) * dx + (py - a[1]) * dy) / (dx * dx + dy * dy || 1), 0, 1); return Math.hypot(px - a[0] - t * dx, py - a[1] - t * dy); };
-const letterMat = new THREE.MeshStandardMaterial({ color: 0xf0efec, roughness: 0.4, metalness: 0.06 });
+const letterMat = new THREE.MeshStandardMaterial({ color: PAL.text, roughness: 0.4, metalness: 0.06 });
 for (const ch of 'NUKRAX') {
   const g = NKX_GLYPHS.g[ch], pts = g.c.map(([x, y]) => [x * S, -y * S]);
   let A = 0, cx = 0, cy = 0; for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length], f = p[0] * q[1] - q[0] * p[1]; A += f; cx += (p[0] + q[0]) * f; cy += (p[1] + q[1]) * f; } cx /= 3 * A; cy /= 3 * A;
@@ -77,7 +100,7 @@ for (const ch of 'NUKRAX') {
   // two wall studs (stay on the wall when the letter falls)
   const sorted = cands.slice().sort((a, b) => (b.r + b.y * 0.02) - (a.r + a.y * 0.02)), s1 = sorted[0], s2 = sorted.find(c => Math.hypot(c.x - s1.x, c.y - s1.y) > (bx1 - bx0) * 0.45) || sorted[1];
   for (const s of [s1, s2]) { const st = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.4, -WALLZ - TH / 2 - 2, 20), mats.steel); st.rotation.x = Math.PI / 2; st.position.set(slot.x + s.x, slot.y + s.y, WALLZ / 2 - TH / 4 - 1); st.castShadow = true; scene.add(st); const w = new THREE.Mesh(new THREE.CylinderGeometry(8, 8, 3, 24), mats.joint); w.rotation.x = Math.PI / 2; w.position.set(slot.x + s.x, slot.y + s.y, WALLZ + 1.5); scene.add(w); }
-  letters.push({ ch, body, mesh, slot, cx, cy, cands, loc, ex: 0, state: 'wall', release: 0.78 + rnd() * 0.22, minY: Math.min(...o3.map(p => p[1])), seat: null, rel: null });
+  letters.push({ ch, body, mesh, slot, cx, cy, cands, loc, ex: 0, ext: bx1 - bx0, state: 'wall', release: 0.78 + rnd() * 0.22, minY: Math.min(...o3.map(p => p[1])), seat: null, rel: null });
   mesh.position.set(slot.x, slot.y, 0); ox += g.adv * S;
 }
 const floorB = Bodies.rectangle(W / 2, FLOOR + 60, 3000, 120, { isStatic: true, friction: 0.8, restitution: 0.05 });
@@ -106,25 +129,68 @@ function planGrasp(L) {
   return { G: [best.wx, best.wy, 0], q: best.q, rot, phiG, phiP: phiG - rot };
 }
 for (const L of letters) { const pts = []; for (let i = 0; i < L.loc.length; i++) pts.push([L.loc[i].x, -L.loc[i].y]); L.cornerPts = pts; }
-const zSpec = (G, phi, grip) => ({ m: 'z', G, phi, grip });
 const up = (G, d) => [G[0], G[1] + d, G[2]];
 const blockers = L => { const out = []; for (const pr of engine.pairs.list) { if (!pr.isActive) continue; const a = letters.find(l => l.body === pr.bodyA.parent), b = letters.find(l => l.body === pr.bodyB.parent); if (!a || !b || (a !== L && b !== L)) continue; const o = a === L ? b : a; if (o.state === 'fall' && o.body.position.y < L.body.position.y - 14) out.push(o); } return out; };
 
 // =============== script ===============
 const TP = +(qs.get('tempo') || 0.72);   // tempo: scales commanded minimum durations and pauses (joint limits still apply)
-const wait = s => { let t = 0; return dt => (t += dt) >= s * TP; };
-const gripTo = (d, T) => arm.gripTo(d, T * TP);
+let opened = false, interactive = false, intervene = false, knockQ = null, interventions = 0, plungerTarget = 0, refills = [];
+const stopSoon = () => (!opened && settled) || intervene;
+const wantStop = () => !held && ((!opened && settled) || intervene);
+const tp = () => TP * (held && ((!opened && settled) || intervene) ? 0.62 : 1);   // finish a part in hand a bit faster when interrupted
+const wait = s => { let t = 0; return dt => (t += dt) >= s * tp(); };
+const until = f => () => f();
+const gripTo = (d, T) => arm.gripTo(d, T * tp());
 const act = f => () => { f(); return true; };
-const mvJ = (s, T = 0.6) => arm.move(s, 'j', T * TP), mvL = (s, T = 0.4) => arm.move(s, 'l', T * TP);
+const mvJ = (s, T = 0.6) => arm.move(s, 'j', T * tp()), mvL = (s, T = 0.4) => arm.move(s, 'l', T * tp());
+const withS = (o, T) => { const s0 = arm.spec; return Object.assign({}, s0, o); };
 
-function* taskCycle(dir) {
-  const a = dir ? PB : PA, b = dir ? PA : PB, top = PH + BLK / 2; phase = 'WORK';
-  if (!blockHeld && Math.abs(block.position.x - a) > 1) block.position.set(a, top, K.ZB);
-  const bp = x => pSpec(x, top + 110, 0, OPEN);
-  yield mvJ(bp(a), 0.9); yield mvL(pSpec(a, top + 4, 0, OPEN), 0.5); yield wait(0.12);
-  yield gripTo(contactRho(BLK / 2, 0) / D, 0.4); blockHeld = true; yield wait(0.1);
-  yield mvL(bp(a), 0.45); yield mvJ(bp(b), 0.9); yield mvL(pSpec(b, top + 4, 0, blockRho0 / D), 0.5); yield wait(0.1);
-  blockHeld = false; block.position.set(b, top, K.ZB); yield gripTo(OPEN, 0.35); yield mvL(bp(b), 0.4);
+// ---------- normal work: feeder -> dial-gauge inspection -> press into fixture; pull + chute finished parts ----------
+function* take(i) {
+  const p = feeder[i], [x, y, z] = feedPos(i), hv = 96 + wr() * 44; phase = 'WORK · FEED';
+  yield mvJ(zSpec([x, y + hv, z], 0, OPEN), 0.9 + wr() * 0.3); if (wantStop()) return false;
+  yield mvL(zSpec([x, y + 26, z], 0, OPEN), 0.5); yield wait(0.06 + wr() * 0.16); yield mvL(zSpec([x, y, z], 0, OPEN), 0.32); yield wait(0.1);
+  yield gripTo(partRho, 0.35); yield act(() => { feeder[i] = null; held = p; refills.push({ i, at: T + 0.9 + wr() * 0.6 }); }); yield wait(0.1);
+  yield mvL(zSpec([x, y + hv * 0.8, z], 0, partRho), 0.45); return true;
+}
+function* gauge() {
+  const [x, y, z] = INS, sw = (62 + wr() * 30) * D; phase = 'WORK · GAUGE';
+  yield mvJ(zSpec([x, y + 76, z], 0, partRho), 1.0 + wr() * 0.3); if (stopSoon()) return; yield mvL(zSpec([x, y, z], 0, partRho), 0.6); yield wait(0.2);
+  yield act(() => { plungerTarget = -5; }); yield wait(0.25);
+  yield mvL(zSpec([x, y, z], 0, partRho, { roll: -sw }), 0.45); yield mvL(zSpec([x, y, z], 0, partRho, { roll: sw }), 1.0 + wr() * 0.4);
+  if (wr() < 0.35 && !stopSoon()) { yield wait(0.15); yield mvL(zSpec([x, y, z], 0, partRho, { roll: -sw * 0.5 }), 0.9); }
+  yield mvL(zSpec([x, y, z], 0, partRho, { roll: 0 }), 0.6); yield act(() => { plungerTarget = 0; }); yield wait(0.25 + wr() * 0.3);
+  yield mvL(zSpec([x, y + 64, z], 0, partRho), 0.5);
+}
+function* press(j) {
+  const [x, y, z] = fixPos(j); phase = 'WORK · INSERT';
+  yield mvJ(zSpec([x, y + 92, z], 0, partRho), 1.1 + wr() * 0.3); yield mvL(zSpec([x, y + 22, z], 0, partRho), 0.55); if (!stopSoon()) yield wait(0.15 + wr() * 0.2);
+  yield mvL(zSpec([x, y + 5, z], 0, partRho), 0.65);
+  if (wr() < 0.5 && !stopSoon()) { const e = (2 + wr() * 2) * D; yield mvL(zSpec([x, y + 5, z], 0, partRho, { roll: e }), 0.22); yield mvL(zSpec([x, y + 5, z], 0, partRho, { roll: -e }), 0.28); yield mvL(zSpec([x, y + 5, z], 0, partRho, { roll: 0 }), 0.22); }
+  yield mvL(zSpec([x, y, z], 0, partRho), 0.4); yield wait(0.15);
+  yield act(() => { fixture[j] = held; held.position.set(...fixPos(j)); held.rotation.set(0, 0, 0); held = null; lastPocket = j; });
+  yield gripTo(OPEN, 0.35); yield mvL(zSpec([x, y + 92, z], 0, OPEN), 0.5);
+}
+function* extract(j) {
+  const p = fixture[j], [x, y, z] = fixPos(j); phase = 'WORK · UNLOAD';
+  yield mvJ(zSpec([x, y + 92, z], 0, OPEN), 0.9 + wr() * 0.3); if (wantStop()) return; yield mvL(zSpec([x, y + 22, z], 0, OPEN), 0.5); yield mvL(zSpec([x, y, z], 0, OPEN), 0.35); yield wait(0.12);
+  yield gripTo(partRho, 0.35); yield act(() => { fixture[j] = null; held = p; }); yield wait(0.12);
+  yield mvL(zSpec([x, y + 28, z], 0, partRho), 0.4); yield mvL(zSpec([x, y + 96, z], 0, partRho), 0.45);
+  const cy = TOP + 44 + PART_R + 34;
+  yield mvJ(zSpec([CHUTE[0], cy, CHUTE[2]], 0, partRho), 1.0 + wr() * 0.3); yield wait(0.12);
+  yield act(() => { drop = { p: held, vy: 0 }; held = null; }); yield gripTo(OPEN, 0.3); yield wait(0.2); yield mvL(zSpec([CHUTE[0], cy + 70, CHUTE[2]], 0, OPEN), 0.4);
+}
+function* taskCycle() {
+  phase = 'WORK';
+  const j = (lastPocket + 1 + (wr() < 0.3 ? 1 : 0)) % 3;
+  if (fixture[j]) { yield* extract(j); if (wantStop()) return; }
+  const free = [0, 1, 2].filter(i => feeder[i] && !feeder[i].rise); if (!free.length) { yield wait(0.3); return; }
+  const i = free[(wr() * free.length) | 0];
+  if (!(yield* take(i))) return;
+  if (!stopSoon()) yield* gauge();   // skipped when something needs attention
+  yield* press(j);
+  if (wr() < 0.28) { const s0 = arm.spec; yield mvL(Object.assign({}, s0, { phi: (wr() - 0.5) * 0.12 }), 0.35); yield wait(0.2); yield mvL(Object.assign({}, s0, { phi: 0 }), 0.35); }   // occasional wrist re-check
+  yield wait(0.1 + wr() * 0.5);
 }
 
 function holdStart(L) {   // jaws are closed on the plate: capture the letter in the tool frame
@@ -179,19 +245,39 @@ function* serve(L) {
   while ((b = blockers(L))[0] && guard++ < 3) { phase = 'CLEAR BLOCKER'; yield* carry(b[0], { kind: 'floor', x: 360 + rnd() * 40 }); yield wait(0.5); }
   yield* carry(L, { kind: 'slot' });
 }
+const calmFor = (L, sec) => { let t = 0; return dt => { const q = L.body.speed < 0.1 && Math.abs(L.body.angularSpeed) < 0.003; t = q ? t + dt : 0; return t >= sec; }; };
+function* reaction(L) {   // the user knocked a letter down: stop, take it in, look at it, look at the user, fix it, look again, back to work
+  interventions++; const k = 1 + 0.25 * Math.min(interventions - 1, 3);
+  phase = 'NOTICED'; yield wait(0.12);
+  const s0 = arm.spec; yield mvL(Object.assign({}, s0, { G: [s0.G[0], s0.G[1] + 14, s0.G[2]] }), 0.35);        // work stops; small lift of the tool
+  yield calmFor(L, 0.55);
+  const p = poseOf(L);
+  phase = 'TURN TO LETTER'; yield mvJ(zSpec([p.x, p.y + 270, 0], 0, OPEN), 1.9); yield wait(0.8 * k);           // look at the letter
+  phase = 'LOOK AT USER'; yield mvJ(zSpec([p.x + 60, 500, 330], 0, OPEN, { lk: 1.15 }), 1.35); yield wait(1.25 * k);   // ...really?
+  yield mvL(zSpec([p.x + 60, 492, 330], 0, OPEN, { lk: 1.05 }), 0.5); yield wait(0.3);
+  yield* carry(L, { kind: 'slot' });
+  phase = 'PAUSE'; yield wait(0.7);
+  phase = 'DONT DO THAT'; yield mvJ(zSpec([L.slot.x + 40, 480, 330], 0, OPEN, { lk: 1.15 }), 1.5); yield wait(0.9 * k);
+  yield mvL(zSpec([L.slot.x + 40, 480, 330], 0, OPEN, { lk: 0.98 }), 0.45); yield mvL(zSpec([L.slot.x + 40, 480, 330], 0, OPEN, { lk: 1.17 }), 0.5); yield wait(0.55);
+}
 function* script() {
-  let k = 0; while (!settled) yield* taskCycle(k++ & 1);
+  while (!settled) yield* taskCycle();
   phase = 'NOTICE'; yield wait(0.3);
-  yield mvJ(pSpec(1640, 560, 0, OPEN), 1.1); yield wait(0.55);
+  yield mvJ(zSpec([1720, 540, Z_INS], 0, OPEN), 1.1); yield wait(0.55);
   phase = 'TURN'; yield mvJ(zSpec([900, 420, 120], 0, OPEN), 2.4); yield wait(0.4);
   for (const L of letters) yield* serve(L);
   phase = 'CHECK'; yield wait(0.7); yield mvL(zSpec(up([letters[5].slot.x, letters[5].slot.y, 0], 170), 0.05, OPEN), 0.3); yield mvL(zSpec(up([letters[5].slot.x, letters[5].slot.y, 0], 170), -0.03, OPEN), 0.3); yield wait(0.8);
-  phase = 'RETURN TO WORK'; yield mvJ(pSpec(PA, PH + BLK / 2 + 110, 0, OPEN), 2.6);
-  for (;;) yield* taskCycle(k++ & 1);
+  phase = 'RETURN TO WORK'; yield mvJ(zSpec([CX[1], feedPos(1)[1] + 110, Z_FEED], 0, OPEN), 2.6);
+  opened = true; interactive = !reduce;
+  for (;;) {
+    if (knockQ) { const L = knockQ; yield* reaction(L); knockQ = null; intervene = false; interactive = true; continue; }
+    yield* taskCycle();
+  }
 }
 const gen = script(); let cur = null;
 function runScript(dt) { for (let n = 0; n < 8; n++) { if (!cur) { const r = gen.next(); if (r.done) return; cur = r.value; } if (cur(dt)) { cur = null; dt = 0; } else return; } }
 
+const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), qFix = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 2);
 // =============== simulation step ===============
 function step() {
   T += DT;
@@ -209,8 +295,36 @@ function step() {
     else if (L.state === 'held') holdUpdate(L, DT);
     else if (L.state === 'seating') { const s = L.seat; s.t = Math.min(1, s.t + DT / 0.3); const e = 1 - Math.pow(1 - s.t, 3); L.mesh.position.lerpVectors(s.p0, v3(L.slot.x, L.slot.y, 0), e); L.mesh.quaternion.slerpQuaternions(s.q0, new THREE.Quaternion(), e); if (s.t >= 1) { L.state = 'placed'; Body.setPosition(L.body, { x: L.slot.x, y: FLOOR - L.slot.y }); Body.setAngle(L.body, 0); L.body.isSensor = false; } }
   }
-  if (blockHeld) block.position.copy(arm.gWorld());
+  // work-cell bookkeeping: held part follows the tool; magazine refills; chute drop; gauge plunger
+  if (held) { const m = arm.toolMatrix(); m.decompose(_p, _q, _s); _q.multiply(qFix); held.quaternion.copy(_q); held.position.copy(arm.gWorld()); }
+  for (const r of refills.slice()) if (T >= r.at) { refills.splice(refills.indexOf(r), 1); if (!feeder[r.i]) spawn(r.i, true); }
+  for (const p of feeder) if (p && p.rise) { p.position.y = Math.min(p.rise.y, p.position.y + 70 * DT); if (p.position.y >= p.rise.y) p.rise = null; }
+  if (drop) { drop.vy -= 1700 * DT; drop.p.position.y += drop.vy * DT; if (drop.p.position.y < TOP + 44 - 40) { drop.p.visible = false; drop = null; } }
+  plungerX += (plungerTarget - plungerX) * Math.min(1, DT * 10); plunger.position.x = 1936 + plungerX;
 }
+
+// =============== user interaction: click a letter to knock it off ===============
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), TOL = [[0, 0]];
+for (const r of [5, 10]) for (let k = 0; k < 8; k++) TOL.push([Math.cos(k * Math.PI / 4) * r, Math.sin(k * Math.PI / 4) * r]);
+function pickLetter(cx, cy) {      // the visible letter is the target; a ~10px forgiving ring, nearest-to-pointer wins
+  const r = renderer.domElement.getBoundingClientRect(), live = letters.filter(l => l.state === 'placed'); if (!live.length) return null;
+  const meshes = live.map(l => l.mesh); let best = null;
+  for (const [ox, oy] of TOL) {
+    ndc.set((cx - r.left + ox) / r.width * 2 - 1, -((cy - r.top + oy) / r.height * 2 - 1)); ray.setFromCamera(ndc, camera);
+    const h = ray.intersectObjects(meshes, false)[0]; if (h) { const d = Math.hypot(ox, oy); if (!best || d < best.d) best = { d, L: live[meshes.indexOf(h.object)], pt: h.point }; }
+  }
+  return best;
+}
+function knock(L, pt) {
+  Body.setPosition(L.body, { x: L.slot.x, y: FLOOR - L.slot.y }); Body.setAngle(L.body, 0);
+  Body.setStatic(L.body, false); L.body.isSensor = false; L.state = 'fall';
+  const dx = clamp((pt.x - L.slot.x) / (L.ext / 2), -1, 1);           // off-centre hit -> rotation + sideways drift, like a real tap
+  Body.setVelocity(L.body, { x: -dx * 0.5 + (rnd() - 0.5) * 0.5, y: -0.25 }); Body.setAngularVelocity(L.body, dx * 0.05 * (0.6 + rnd() * 0.8) + (rnd() - 0.5) * 0.03);
+  knockQ = L; interactive = false; intervene = true;
+}
+function onPointer(e) { if (!interactive || knockQ) return; const h = pickLetter(e.clientX, e.clientY); if (h) knock(h.L, h.pt); }
+renderer.domElement.addEventListener('pointerdown', onPointer);
+renderer.domElement.addEventListener('pointermove', e => { renderer.domElement.style.cursor = interactive && !knockQ && pickLetter(e.clientX, e.clientY) ? 'pointer' : ''; });
 
 // =============== loop / sizing ===============
 function fit() { const w = Math.min(innerWidth, innerHeight * 16 / 9), h = w * 9 / 16; renderer.setSize(w, h); camera.aspect = 16 / 9; camera.updateProjectionMatrix(); }
@@ -222,6 +336,8 @@ window.__nkx = {
   get t() { return T; }, get phase() { return phase; }, get settled() { return settled; }, seed: SEED, arm,
   letters: () => letters.map(l => ({ ch: l.ch, state: l.state, x: +l.mesh.position.x.toFixed(1), y: +l.mesh.position.y.toFixed(1), deg: +(-l.mesh.rotation.z * 57.2958).toFixed(1) })),
   until(ph) { let g = 0; while (!phase.startsWith(ph) && g++ < 60000) step(); },
+  click: (cx, cy) => onPointer({ clientX: cx, clientY: cy }), get interactive() { return interactive; }, get opened() { return opened; }, get knocked() { return !!knockQ; },
+  screenOf(i) { const v = letters[i].mesh.position.clone().project(camera), r = renderer.domElement.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; },
   q: () => ({ ...arm.q }), qd: () => ({ ...arm.qd }), render: () => renderer.render(scene, camera),
 };
 fit(); addEventListener('resize', () => { fit(); renderer.render(scene, camera); });
