@@ -1,13 +1,13 @@
 @font-face{font-family:'NKX Display';src:url('../assets/fonts/nukrax-display.woff2') format('woff2'),url('../assets/fonts/nukrax-display.otf') format('opentype');font-display:block}
-:root{--black:#07090B;--panel:#0A0F13;--line:#1B2328;--muted:#8A9BA3;--text:#D3DBDD;--white:#F2F5F5;--accent:#8FB8C4}
-html,body{margin:0;height:100%;background:var(--black);overflow:hidden}
-body{display:flex;align-items:center;justify-content:center;font-family:'Outfit','Space Mono',sans-serif;color:var(--text)}
-#stage{display:block}
-.hud{position:fixed;left:24px;bottom:18px;font:10.5px/1.6 'Space Mono',monospace;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);opacity:.55;pointer-events:none}
+/* NUKRAX web palette (dark theme tokens from Color_System_Specification) */
+:root{--color-bg-page:#151515;--color-bg-recessed:#111111;--color-surface-base:#1A1A19;--color-border-default:#2D2D2D;--color-text-primary:#F0EFEC;--color-text-secondary:#C3C2B7;--color-text-muted:#898781;--color-accent-primary:#ABBED3}
+html,body{margin:0;height:100%;background:var(--color-bg-page);overflow:hidden}
+body{display:flex;align-items:center;justify-content:center;font-family:'Outfit','Space Mono',sans-serif;color:var(--color-text-secondary)}
+canvas#stage,#stage{display:block}
+.hud{position:fixed;left:24px;bottom:18px;font:10.5px/1.6 'Space Mono',monospace;letter-spacing:.2em;text-transform:uppercase;color:var(--color-text-muted);opacity:.6;pointer-events:none}
 .fallback{display:none;text-align:center;padding:24px}
-.fallback b{display:block;font:400 clamp(44px,16vw,96px)/1 'NKX Display',sans-serif;letter-spacing:.06em;color:var(--white);margin-bottom:16px}
-.fallback span{font:11px 'Space Mono',monospace;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.fallback b{display:block;font:400 clamp(44px,16vw,96px)/1 'NKX Display',sans-serif;letter-spacing:.06em;color:var(--color-text-primary);margin-bottom:16px}
+.fallback span{font:11px 'Space Mono',monospace;letter-spacing:.2em;text-transform:uppercase;color:var(--color-text-muted)}
 @media (max-width:899px){#stage,canvas#stage,.hud{display:none}.fallback{display:block}}
-canvas#stage{display:block}
-.dbg{position:fixed;left:24px;top:18px;font:13px 'Space Mono',monospace;color:#abbed3;pointer-events:none}
+.dbg{position:fixed;left:24px;top:18px;font:13px 'Space Mono',monospace;color:var(--color-accent-primary);pointer-events:none}
 body.nogl #stage,body.nogl .hud{display:none}body.nogl .fallback{display:block}
