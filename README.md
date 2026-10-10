@@ -1,4 +1,4 @@
-# NUKRAX — Robotic Arm Physics Prototype (V3: character + environment + interaction)
+# NUKRAX — Robotic Arm Physics Prototype (V4: realism / reconstruction pass)
 Standalone experiment; the production repo is never touched. V1 (Canvas 2D) is tagged `v1-prototype`, V2 `v2-prototype`.
 
 **Run:** serve the folder over HTTP (ES modules need it; GitHub Pages works): `python3 -m http.server 8000` → http://localhost:8000/
@@ -11,3 +11,5 @@ Standalone experiment; the production repo is never touched. V1 (Canvas 2D) is t
 - `docs/validation/` — screenshots of the whole sequence + joint motion trace
 
 **V3:** palette from `Color_System_Specification.pdf`; richer arm geometry + actuator linkage; precision-insertion work cell (feeder → dial-gauge → fixture, parts pulled to a chute); click any placed letter and the robot reacts, recovers it and returns to work. Evidence: `docs/validation-v3/`.
+
+**V4:** reference-driven arm rebuild (`js/arm3d.js`), differentiated materials incl. woven carbon fibre + studio environment (`js/materials.js`), precision inspection cell (`js/workcell.js`), torque-limited servo motion, work preemption so a clicked letter falls immediately and the robot reprioritises. Evidence: `docs/validation-v4/`. Flags: `?tempo=0.5` faster, `?seed=N` replay a fall, `?debug` phase HUD.
